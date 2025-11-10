@@ -98,7 +98,15 @@ export const fetchLyrics = (info: SongInfo) => {
 
     tasks.push(
       provider
-        .search(info)
+        .search({
+          title: info.title,
+          alternativeTitle: info.alternativeTitle,
+          artist: info.artist,
+          album: info.album,
+          songDuration: info.songDuration,
+          videoId: info.videoId,
+          tags: info.tags,
+        })
         .then((res) => {
           pCache.state = 'done';
           pCache.data = res;
@@ -155,7 +163,15 @@ export const retrySearch = (provider: ProviderName, info: SongInfo) => {
   });
 
   providers[provider]
-    .search(info)
+    .search({
+      title: info.title,
+      alternativeTitle: info.alternativeTitle,
+      artist: info.artist,
+      album: info.album,
+      songDuration: info.songDuration,
+      videoId: info.videoId,
+      tags: info.tags,
+    })
     .then((res) => {
       setLyricsStore('lyrics', (old) => {
         return {
