@@ -230,13 +230,17 @@ async function onApiLoaded() {
                           )?.selected,
                       ) + 1 || queueItemsLength
                     : queueItemsLength,
-                items: result.queueDatas
-                  .map((it) =>
-                    typeof it === 'object' && it && 'content' in it
-                      ? it.content
-                      : null,
-                  )
-                  .filter(Boolean),
+                items: result.queueDatas.reduce<unknown[]>((acc, it) => {
+                  if (
+                    typeof it === 'object' &&
+                    it &&
+                    'content' in it &&
+                    it.content
+                  ) {
+                    acc.push(it.content);
+                  }
+                  return acc;
+                }, []),
                 shuffleEnabled: false,
                 shouldAssignIds: true,
               },

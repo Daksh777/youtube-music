@@ -8,23 +8,51 @@ export const waitForElement = <T extends Element>(
     retryInterval: 100,
   },
 ): Promise<T> => {
-  return new Promise<T>((resolve) => {
-    let retryCount = 0;
+  return new Promise<T>((resolve, reject) => {
+    // Check if element already exists
+    const existingElement = document.querySelector<T>(selector);
+    if (existingElement) {
+      resolve(existingElement);
+      return;
+    }
+
     const maxRetry = options.maxRetry ?? -1;
     const retryInterval = options.retryInterval ?? 100;
-    const interval = setInterval(() => {
-      if (maxRetry > 0 && retryCount >= maxRetry) {
-        clearInterval(interval);
-        return;
-      }
-      const elem = document.querySelector<T>(selector);
-      if (!elem) {
-        retryCount++;
-        return;
-      }
+    let retryCount = 0;
+    let timeoutId: NodeJS.Timeout | undefined;
 
-      clearInterval(interval);
-      resolve(elem);
-    }, retryInterval /* ms */);
+    // Use MutationObserver for efficient DOM watching
+    const observer = new MutationObserver(() => {
+      const elem = document.querySelector<T>(selector);
+      if (elem) {
+        observer.disconnect();
+        if (timeoutId) clearTimeout(timeoutId);
+        resolve(elem);
+      }
+    });
+
+    // Start observing
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+
+    // Fallback polling for timeout/maxRetry support
+    if (maxRetry > 0) {
+      const checkRetry = () => {
+        retryCount++;
+        if (retryCount >= maxRetry) {
+          observer.disconnect();
+          reject(
+            new Error(
+              `Element ${selector} not found after ${maxRetry} retries`,
+            ),
+          );
+        } else {
+          timeoutId = setTimeout(checkRetry, retryInterval);
+        }
+      };
+      timeoutId = setTimeout(checkRetry, retryInterval);
+    }
   });
 };

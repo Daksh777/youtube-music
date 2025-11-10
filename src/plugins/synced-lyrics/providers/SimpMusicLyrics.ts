@@ -88,7 +88,12 @@ export class SimpMusicLyrics implements LyricProvider {
         Math.abs(b.durationSeconds - songDuration),
     );
 
-    const maxVote = Math.max(...filteredResults.map((r) => r.vote ?? 0));
+    // Optimize: calculate maxVote and filter in a single pass
+    let maxVote = 0;
+    for (const result of filteredResults) {
+      const vote = result.vote ?? 0;
+      if (vote > maxVote) maxVote = vote;
+    }
 
     const topVoted = filteredResults.filter((r) => (r.vote ?? 0) === maxVote);
 

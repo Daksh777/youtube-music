@@ -174,8 +174,14 @@ export class Queue {
     );
     if (!response) return false;
 
-    const items = response.queueDatas.map((it) => it?.content).filter(Boolean);
-    if (!items) return false;
+    // Optimize: use reduce or flatMap to avoid two passes
+    const items = response.queueDatas.reduce<
+      (typeof response.queueDatas)[number]['content'][]
+    >((acc, it) => {
+      if (it?.content) acc.push(it.content);
+      return acc;
+    }, []);
+    if (!items.length) return false;
 
     this.internalDispatch = true;
     this._videoList = this._videoList.map(
