@@ -207,7 +207,7 @@ export const romanizeBengali = (line: string) => {
 
 export const romanizeHindi = (line: string) => {
   return line.replaceAll(/[\u0900-\u097F]+/g, (match) =>
-    Sanscript.t(match, 'devanagari', 'itrans'),
+    Sanscript.t(match, 'devanagari', 'iast'),
   );
 };
 
