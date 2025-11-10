@@ -52,13 +52,18 @@ interface SearchCache {
 // TODO: Maybe use localStorage for the cache.
 const searchCache = new Map<VideoId, SearchCache>();
 export const fetchLyrics = (info: SongInfo) => {
+  // Skip fetching if title or artist is missing/empty
+  if (!info.title || !info.artist) {
+    return;
+  }
+
   if (searchCache.has(info.videoId)) {
     const cache = searchCache.get(info.videoId)!;
 
     if (cache.state === 'loading') {
       setTimeout(() => {
         fetchLyrics(info);
-      }, 100);
+      });
       return;
     }
 
