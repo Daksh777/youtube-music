@@ -72,4 +72,11 @@ export default createPlugin({
       }
     },
   },
+  preload: {
+    async start() {
+      // Import and inject the preload script from @ghostery/adblocker-electron-preload
+      await import('@ghostery/adblocker-electron-preload');
+      // This enables content-level ad blocking in the renderer process
+    },
+  },
 });
