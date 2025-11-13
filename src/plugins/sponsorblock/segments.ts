@@ -1,5 +1,5 @@
 // Segments are an array [ [start, end], … ]
-import type { Segment } from './types';
+import type { Segment, SegmentWithCategory } from './types';
 
 export const sortSegments = (segments: Segment[]) => {
   segments.sort((segment1, segment2) =>
@@ -31,4 +31,16 @@ export const sortSegments = (segments: Segment[]) => {
   }
 
   return compiledSegments;
+};
+
+export const sortSegmentsWithCategory = (
+  segments: SegmentWithCategory[],
+): SegmentWithCategory[] => {
+  // Sort segments by start time, but don't merge overlapping segments
+  // since we want to preserve category information for visual indicators
+  return segments.sort((a, b) =>
+    a.segment[0] === b.segment[0]
+      ? a.segment[1] - b.segment[1]
+      : a.segment[0] - b.segment[0],
+  );
 };

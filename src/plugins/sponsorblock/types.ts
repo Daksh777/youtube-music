@@ -1,5 +1,10 @@
 export type Segment = [number, number];
 
+export interface SegmentWithCategory {
+  segment: Segment;
+  category: string;
+}
+
 export interface SkipSegment {
   // Array of this object
   segment: Segment; //[0, 15.23] start and end time in seconds

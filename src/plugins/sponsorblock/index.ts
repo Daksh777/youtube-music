@@ -1,14 +1,14 @@
 import is from 'electron-is';
-import { IpcRendererEvent } from 'electron';
 
 import { createPlugin } from '@/utils';
 
-import { sortSegments } from './segments';
+import { sortSegments, sortSegmentsWithCategory } from './segments';
+import { SponsorBlockIndicators } from './indicators';
 
 import { t } from '@/i18n';
 
 import type { GetPlayerResponse } from '@/types/get-player-response';
-import type { Segment, SkipSegment } from './types';
+import type { Segment, SkipSegment, SegmentWithCategory } from './types';
 
 export type SponsorBlockPluginConfig = {
   enabled: boolean;
@@ -24,6 +24,7 @@ export type SponsorBlockPluginConfig = {
 };
 
 let currentSegments: Segment[] = [];
+let indicators: SponsorBlockIndicators | null = null;
 
 export default createPlugin({
   name: () => t('plugins.sponsorblock.name'),
@@ -59,17 +60,31 @@ export default createPlugin({
           redirect: 'follow',
         });
         if (resp.status !== 200) {
-          return [];
+          return { segments: [], segmentsWithCategory: [] };
         }
 
-        const segments = (await resp.json()) as SkipSegment[];
-        return sortSegments(segments.map((submission) => submission.segment));
+        const skipSegments = (await resp.json()) as SkipSegment[];
+
+        // Extract segments for skipping (merged/overlapping)
+        const segments = sortSegments(
+          skipSegments.map((submission) => submission.segment),
+        );
+
+        // Extract segments with category for visual indicators (not merged)
+        const segmentsWithCategory = sortSegmentsWithCategory(
+          skipSegments.map((submission) => ({
+            segment: submission.segment,
+            category: submission.category,
+          })),
+        );
+
+        return { segments, segmentsWithCategory };
       } catch (error) {
         if (is.dev()) {
           console.log('error on sponsorblock request:', error);
         }
 
-        return [];
+        return { segments: [], segmentsWithCategory: [] };
       }
     };
 
@@ -78,12 +93,13 @@ export default createPlugin({
     const { apiURL, categories } = config;
 
     ipc.on('peard:video-src-changed', async (data: GetPlayerResponse) => {
-      const segments = await fetchSegments(
+      const { segments, segmentsWithCategory } = await fetchSegments(
         apiURL,
         categories,
         data?.videoDetails?.videoId,
       );
       ipc.send('sponsorblock-skip', segments);
+      ipc.send('sponsorblock-segments', segmentsWithCategory);
     });
   },
   renderer: {
@@ -104,11 +120,27 @@ export default createPlugin({
         }
       }
     },
-    resetSegments: () => (currentSegments = []),
+    resetSegments: () => {
+      currentSegments = [];
+    },
     start({ ipc }) {
       ipc.on('sponsorblock-skip', (_event: unknown, segments: Segment[]) => {
         currentSegments = segments;
       });
+      ipc.on(
+        'sponsorblock-segments',
+        (_event: unknown, segments: SegmentWithCategory[]) => {
+          currentSegmentsWithCategory = segments;
+          // Trigger visual indicator update
+          const event = new CustomEvent('sponsorblock-segments-updated', {
+            detail: segments,
+          });
+          document.dispatchEvent(event);
+        },
+      );
+
+      // Initialize visual indicators
+      indicators = new SponsorBlockIndicators();
     },
     onPlayerApiReady() {
       const video = document.querySelector<HTMLVideoElement>('video');
@@ -124,6 +156,12 @@ export default createPlugin({
 
       video.removeEventListener('timeupdate', this.timeUpdateListener);
       video.removeEventListener('emptied', this.resetSegments);
+
+      // Cleanup indicators
+      if (indicators) {
+        indicators.destroy();
+        indicators = null;
+      }
     },
   },
 });
