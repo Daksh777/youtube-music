@@ -11,9 +11,12 @@ export class SponsorBlockIndicators {
   private video: HTMLVideoElement | null = null;
   private observer: MutationObserver | null = null;
   private boundUpdateIndicators: (e: Event) => void;
+  private boundHandleLoadedMetadata: () => void;
+  private currentSegments: SegmentWithCategory[] = [];
 
   constructor() {
     this.boundUpdateIndicators = this.handleSegmentUpdate.bind(this);
+    this.boundHandleLoadedMetadata = this.handleLoadedMetadata.bind(this);
     this.init();
   }
 
@@ -23,9 +26,10 @@ export class SponsorBlockIndicators {
       this.progressBar = document.querySelector('#progress-bar');
       this.video = document.querySelector('video');
 
-      if (this.progressBar) {
+      if (this.progressBar && this.video) {
         this.setupContainer();
         this.setupObserver();
+        this.setupVideoListeners();
       } else {
         // Retry after a short delay
         setTimeout(checkProgressBar, 1000);
@@ -41,9 +45,27 @@ export class SponsorBlockIndicators {
     );
   }
 
+  private setupVideoListeners() {
+    if (!this.video) return;
+
+    // Listen for when video metadata is loaded to update indicators
+    this.video.addEventListener(
+      'loadedmetadata',
+      this.boundHandleLoadedMetadata,
+    );
+  }
+
+  private handleLoadedMetadata() {
+    // Re-render indicators when video metadata is loaded
+    if (this.currentSegments.length > 0) {
+      this.updateIndicators(this.currentSegments);
+    }
+  }
+
   private handleSegmentUpdate(e: Event) {
     const customEvent = e as CustomEvent<SegmentWithCategory[]>;
-    this.updateIndicators(customEvent.detail);
+    this.currentSegments = customEvent.detail;
+    this.updateIndicators(this.currentSegments);
   }
 
   private setupContainer() {
@@ -63,11 +85,23 @@ export class SponsorBlockIndicators {
     `;
 
     // Find the parent element to insert the container
+    // The structure is: tp-yt-paper-slider (#progress-bar) > #sliderContainer > bar-container
     const sliderContainer = this.progressBar.querySelector('#sliderContainer');
     if (sliderContainer) {
       const element = sliderContainer as HTMLElement;
-      element.style.position = 'relative';
+      // Ensure the parent is positioned relatively
+      const computed = getComputedStyle(element);
+      if (computed.position === 'static') {
+        element.style.position = 'relative';
+      }
       element.appendChild(this.container);
+    } else {
+      // Fallback: append to progress bar itself
+      const computed = getComputedStyle(this.progressBar);
+      if (computed.position === 'static') {
+        this.progressBar.style.position = 'relative';
+      }
+      this.progressBar.appendChild(this.container);
     }
   }
 
@@ -76,7 +110,15 @@ export class SponsorBlockIndicators {
 
     // Observe changes to the progress bar value to update indicators
     this.observer = new MutationObserver(() => {
-      this.updateIndicatorPositions();
+      // Re-render indicators if video duration changes
+      if (
+        this.video &&
+        this.video.duration &&
+        !isNaN(this.video.duration) &&
+        this.currentSegments.length > 0
+      ) {
+        this.updateIndicators(this.currentSegments);
+      }
     });
 
     this.observer.observe(this.progressBar, {
@@ -92,7 +134,7 @@ export class SponsorBlockIndicators {
     this.container.innerHTML = '';
 
     const duration = this.video.duration;
-    if (!duration || isNaN(duration)) return;
+    if (!duration || isNaN(duration) || duration === 0) return;
 
     // Create indicator for each segment
     for (const { segment, category } of segments) {
@@ -127,15 +169,17 @@ export class SponsorBlockIndicators {
     }
   }
 
-  private updateIndicatorPositions() {
-    // This method can be used to update indicator positions if needed
-    // Currently positions are percentage-based so they scale automatically
-  }
-
   public destroy() {
     if (this.observer) {
       this.observer.disconnect();
       this.observer = null;
+    }
+
+    if (this.video) {
+      this.video.removeEventListener(
+        'loadedmetadata',
+        this.boundHandleLoadedMetadata,
+      );
     }
 
     if (this.container && this.container.parentNode) {
@@ -147,5 +191,7 @@ export class SponsorBlockIndicators {
       'sponsorblock-segments-updated',
       this.boundUpdateIndicators as EventListener,
     );
+
+    this.currentSegments = [];
   }
 }
