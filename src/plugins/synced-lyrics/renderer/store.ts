@@ -58,14 +58,14 @@ export const fetchLyrics = (info: SongInfo) => {
     if (cache.state === 'loading') {
       setTimeout(() => {
         fetchLyrics(info);
-      });
+      }, 100); // Add 100ms delay to prevent immediate recursion
       return;
     }
 
     if (getSongInfo().videoId === info.videoId) {
       setLyricsStore('lyrics', () => {
-        // weird bug with solid-js
-        return JSON.parse(JSON.stringify(cache.data)) as typeof cache.data;
+        // Use structuredClone for better performance than JSON.parse/stringify
+        return structuredClone(cache.data);
       });
     }
 
@@ -80,8 +80,8 @@ export const fetchLyrics = (info: SongInfo) => {
   searchCache.set(info.videoId, cache);
   if (getSongInfo().videoId === info.videoId) {
     setLyricsStore('lyrics', () => {
-      // weird bug with solid-js
-      return JSON.parse(JSON.stringify(cache.data)) as typeof cache.data;
+      // Use structuredClone for better performance than JSON.parse/stringify
+      return structuredClone(cache.data);
     });
   }
 

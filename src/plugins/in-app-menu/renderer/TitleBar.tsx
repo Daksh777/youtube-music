@@ -262,7 +262,15 @@ export const TitleBar = (props: TitleBarProps) => {
     setMenu(await refreshMenuItem(menuData, commandId));
   };
 
+  let lastMouseUpdateTime = 0;
+  const MOUSE_THROTTLE_MS = 16; // ~60fps
+
   const listener = (e: MouseEvent) => {
+    const now = Date.now();
+    if (now - lastMouseUpdateTime < MOUSE_THROTTLE_MS) {
+      return;
+    }
+    lastMouseUpdateTime = now;
     setMouseY(e.clientY);
   };
 
@@ -303,7 +311,17 @@ export const TitleBar = (props: TitleBarProps) => {
     // tracking mouse position
     window.addEventListener('mousemove', listener);
     const ytmusicAppLayout = document.querySelector<HTMLElement>('#layout');
+
+    let lastScrollTime = 0;
+    const SCROLL_THROTTLE_MS = 50; // Throttle scroll events
+
     ytmusicAppLayout?.addEventListener('scroll', () => {
+      const now = Date.now();
+      if (now - lastScrollTime < SCROLL_THROTTLE_MS) {
+        return;
+      }
+      lastScrollTime = now;
+
       const scrollValue = ytmusicAppLayout.scrollTop;
       if (scrollValue > 20) {
         ytmusicAppLayout.classList.add('content-scrolled');

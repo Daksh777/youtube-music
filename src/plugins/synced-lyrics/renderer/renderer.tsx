@@ -150,11 +150,10 @@ export const LyricsRenderer = () => {
   const tab = document.querySelector<HTMLElement>(selectors.body.tabRenderer)!;
 
   let mouseCoord = 0;
-  const mousemoveListener = (e: Event) => {
-    if ('clientY' in e) {
-      mouseCoord = (e as MouseEvent).clientY;
-    }
+  let lastUpdateTime = 0;
+  const THROTTLE_MS = 16; // ~60fps, only update every 16ms
 
+  const updatePickerVisibility = () => {
     const { top } = tab.getBoundingClientRect();
     const { clientHeight: height } = stickyRef()!;
     const scrollOffset = scroller()?.scrollOffset ?? -1;
@@ -173,17 +172,34 @@ export const LyricsRenderer = () => {
     }
   };
 
+  const mousemoveListener = (e: Event) => {
+    if ('clientY' in e) {
+      mouseCoord = (e as MouseEvent).clientY;
+    }
+
+    // Throttle updates to avoid excessive getBoundingClientRect calls
+    const now = Date.now();
+    if (now - lastUpdateTime < THROTTLE_MS) {
+      return;
+    }
+    lastUpdateTime = now;
+
+    updatePickerVisibility();
+  };
+
   onMount(() => {
     const vList = document.querySelector<HTMLElement>('.synced-lyrics-vlist');
 
     tab.addEventListener('mousemove', mousemoveListener);
-    vList?.addEventListener('scroll', mousemoveListener);
-    vList?.addEventListener('scrollend', mousemoveListener);
+    // For scroll events, call updatePickerVisibility directly (no throttle needed)
+    const scrollListener = () => updatePickerVisibility();
+    vList?.addEventListener('scroll', scrollListener);
+    vList?.addEventListener('scrollend', scrollListener);
 
     onCleanup(() => {
       tab.removeEventListener('mousemove', mousemoveListener);
-      vList?.removeEventListener('scroll', mousemoveListener);
-      vList?.removeEventListener('scrollend', mousemoveListener);
+      vList?.removeEventListener('scroll', scrollListener);
+      vList?.removeEventListener('scrollend', scrollListener);
     });
   });
 
